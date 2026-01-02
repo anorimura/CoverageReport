@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "CoverageReport",
   "resources": {
-    "hash": "sha256-JxjWy2HsWrdM6UCA8tuXQscynW9KHmRfLXzNa5s8WOI=",
+    "hash": "sha256-sFmM1HcbNF9Xwv2tHOLAsalXv8hyf3rEk/k43FCbFtY=",
     "jsModuleNative": {
       "dotnet.native.js": "sha256-vtotCeXt2UD6oc459laJT32vBgigZ+eLoUmdeFkvYDk="
     },
@@ -63,7 +63,7 @@
       "System.Xml.XDocument.wasm": "sha256-0S3oWBM9trBXy/SuCv8fchXQu+ebACszBeok4Gt9R4Y=",
       "netstandard.wasm": "sha256-TuHqSq1zf3aHM/i9efB3QW7cv+DLP4DTX/a1UUYauzY=",
       "System.Private.CoreLib.wasm": "sha256-hcYwYHd5GR/4oCfAY/lGX5v32jIPjR0sZgCczEKWnM8=",
-      "CoverageReport.wasm": "sha256-dHkCWO42IEQQG7Uh3Z2icu7lFYchPeW5IwlXBl7NA2s="
+      "CoverageReport.wasm": "sha256-s/wlX0nCryauvUXPQS6SRDP0QpCmsnomQWBmwl+QXkU="
     }
   },
   "cacheBootResources": true,
