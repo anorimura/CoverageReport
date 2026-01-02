@@ -1,0 +1,179 @@
+@page "/history"
+@inject CoverageService CoverageService
+@inject IJSRuntime JS
+
+<PageTitle>Coverage History</PageTitle>
+
+<h1>History</h1>
+
+@if (HistoryData == null)
+{
+    <p>Loading...</p>
+}
+else if (!HistoryData.Any())
+{
+    <p>No history found.</p>
+}
+else
+{
+    <div class="mb-4">
+        <ApexChart TItem="ReportHistory"
+                   Title="Coverage Trend"
+                   Options=options>
+
+            <ApexPointSeries TItem="ReportHistory"
+                             Items="HistoryData"
+                             Name="Line Rate"
+                             SeriesType="SeriesType.Line"
+                             XValue="@(e => e.UploadDate.ToShortDateString())"
+                             YValue="@(e => (decimal)(e.LineRate * 100))" />
+
+            <ApexPointSeries TItem="ReportHistory"
+                             Items="HistoryData"
+                             Name="Branch Rate"
+                             SeriesType="SeriesType.Line"
+                             XValue="@(e => e.UploadDate.ToShortDateString())"
+                             YValue="@(e => (decimal)(e.BranchRate * 100))" />
+
+            <ApexPointSeries TItem="ReportHistory"
+                             Items="HistoryData"
+                             Name="Core Line Rate"
+                             SeriesType="SeriesType.Line"
+                             XValue="@(e => e.UploadDate.ToShortDateString())"
+                             YValue="@(e => (decimal)(e.CoreLineRate * 100))" />
+
+            <ApexPointSeries TItem="ReportHistory"
+                             Items="HistoryData"
+                             Name="Core Branch Rate"
+                             SeriesType="SeriesType.Line"
+                             XValue="@(e => e.UploadDate.ToShortDateString())"
+                             YValue="@(e => (decimal)(e.CoreBranchRate * 100))" />
+        </ApexChart>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Line Rate</th>
+                <th>Branch Rate</th>
+                <th>Core Line Rate</th>
+                <th>Core Branch Rate</th>
+                <th>Total Lines</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in HistoryData.OrderByDescending(h => h.UploadDate))
+            {
+                <tr>
+                    <td>@item.UploadDate.ToShortDateString()</td>
+                    <td>@item.LineRate.ToString("P1")</td>
+                    <td>@item.BranchRate.ToString("P1")</td>
+                    <td class="fw-bold">@item.CoreLineRate.ToString("P1")</td>
+                    <td class="fw-bold">@item.CoreBranchRate.ToString("P1")</td>
+                    <td>@item.LinesTotal.ToString("N0")</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm me-1" @onclick="() => ViewReportDetails(item.Id)">View Plan</button>
+                        <button class="btn btn-danger btn-sm" @onclick="() => DeleteReport(item.Id)">Delete</button>
+                    </td>
+                </tr>
+                @if (SelectedReport?.Id == item.Id)
+                {
+                    <tr class="table-info">
+                        <td colspan="7">
+                            <div class="p-3 bg-white border rounded shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="mb-0 fw-bold">Target Action Plan (60% Goal)</h5>
+                                    <button class="btn-close" @onclick="() => SelectedReport = null"></button>
+                                </div>
+                                
+                                @if (!SelectedReport.ClassDetails.Any(d => d.IsTarget))
+                                {
+                                    <div class="alert alert-secondary py-2 small">No classes were targeted in this plan.</div>
+                                }
+                                else
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Package / Class</th>
+                                                    <th>Impact (Lines)</th>
+                                                    <th>Coverage at Upload</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var detail in SelectedReport.ClassDetails.Where(d => d.IsTarget).OrderByDescending(d => d.LinesTotal - d.LinesCovered))
+                                                {
+                                                    <tr>
+                                                        <td><span class="text-muted small">@detail.PackageName.</span><br /><strong>@detail.ClassName</strong></td>
+                                                        <td class="text-danger fw-bold">@((detail.LinesTotal - detail.LinesCovered).ToString("N0"))</td>
+                                                        <td class="@GetRateClass(detail.LineRate)">@detail.LineRate.ToString("P1")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="mt-2 text-end">
+                                        @{
+                                            long totalImpact = SelectedReport.ClassDetails.Where(d => d.IsTarget).Sum(d => d.LinesTotal - d.LinesCovered);
+                                            double est = SelectedReport.LinesTotal > 0 ? (double)(SelectedReport.LinesCovered + totalImpact) / SelectedReport.LinesTotal : 0;
+                                        }
+                                        <span class="small fw-bold">Total Impact: <span class="text-primary">+@totalImpact.ToString("N0")</span> lines (Estimated: <span class="@GetRateClass(est)">@est.ToString("P1")</span>)</span>
+                                    </div>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ReportHistory>? HistoryData;
+    private ReportHistory? SelectedReport;
+    private ApexChartOptions<ReportHistory> options = new ApexChartOptions<ReportHistory>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // Setup chart options
+        options.Yaxis = new List<YAxis>
+        {
+            new YAxis { Min = 0, Max = 100 }
+        };
+    }
+
+    private async Task LoadData()
+    {
+        var data = await CoverageService.GetHistoryAsync();
+        // For chart, we want chronological order
+        HistoryData = data.OrderBy(h => h.UploadDate).ToList();
+    }
+
+    private async Task DeleteReport(int id)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", "Are you sure?"))
+        {
+            await CoverageService.DeleteReportAsync(id);
+            await LoadData();
+        }
+    }
+
+    private async Task ViewReportDetails(int id)
+    {
+        if (SelectedReport?.Id == id)
+        {
+            SelectedReport = null;
+        }
+        else
+        {
+            SelectedReport = await CoverageService.GetReportAsync(id);
+        }
+    }
+
+    private string GetRateClass(double rate) => rate < 0.5 ? "text-danger" : (rate < 0.8 ? "text-warning" : "text-success");
+}

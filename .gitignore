@@ -1,0 +1,25 @@
+## [Bb]in/
+## [Oo]bj/
+[Bb]in/
+[Oo]bj/
+
+# IDE settings
+.vs/
+.vscode/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Deployment / Published files
+published/
+published_new/
+
+# Logs
+build_log.txt
+
+# OS-specific
+.DS_Store
+Thumbs.db
