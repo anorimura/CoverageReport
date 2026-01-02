@@ -13,10 +13,10 @@
         <InputFile OnChange="HandleFileSelected" class="form-control" accept=".xml" />
     </div>
     <div class="col-md-6">
-        @if (ParsedReport != null)
+        @if (CoverageService.CurrentReport != null)
         {
             <label class="form-label">Report Date</label>
-            <input type="date" class="form-control" @bind="ParsedReport.UploadDate" />
+            <input type="date" class="form-control" @bind="CoverageService.CurrentReport.UploadDate" />
         }
     </div>
 </div>
@@ -48,7 +48,7 @@
     </div>
 }
 
-@if (ParsedReport != null)
+@if (CoverageService.CurrentReport != null)
 {
     <div class="card mb-3 shadow-sm border-0">
         <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white py-3">
@@ -62,23 +62,23 @@
             <div class="row text-center">
                 <div class="col-md-3 border-end">
                     <div class="text-muted small text-uppercase fw-bold mb-1">Overall Core Content</div>
-                    <div class="h4 mb-0 fw-bold @GetRateClass(ParsedReport.LineRate)">@ParsedReport.LineRate.ToString("P1")</div>
-                    <div class="small text-muted mt-1">@ParsedReport.LinesCovered.ToString("N0") / @ParsedReport.LinesTotal.ToString("N0") lines</div>
+                    <div class="h4 mb-0 fw-bold @GetRateClass(CoverageService.CurrentReport.LineRate)">@CoverageService.CurrentReport.LineRate.ToString("P1")</div>
+                    <div class="small text-muted mt-1">@CoverageService.CurrentReport.LinesCovered.ToString("N0") / @CoverageService.CurrentReport.LinesTotal.ToString("N0") lines</div>
                 </div>
                 <div class="col-md-3 border-end">
                     <div class="text-muted small text-uppercase fw-bold mb-1">Core Logic (Services)</div>
-                    <div class="h4 mb-0 text-primary fw-bold">@ParsedReport.CoreLineRate.ToString("P1")</div>
-                    <div class="small text-muted mt-1">@ParsedReport.CoreLinesCovered.ToString("N0") / @ParsedReport.CoreLinesTotal.ToString("N0") lines</div>
+                    <div class="h4 mb-0 text-primary fw-bold">@CoverageService.CurrentReport.CoreLineRate.ToString("P1")</div>
+                    <div class="small text-muted mt-1">@CoverageService.CurrentReport.CoreLinesCovered.ToString("N0") / @CoverageService.CurrentReport.CoreLinesTotal.ToString("N0") lines</div>
                 </div>
                 <div class="col-md-3 border-end">
                     <div class="text-muted small text-uppercase fw-bold mb-1">WebAPI Controllers</div>
-                    <div class="h4 mb-0 text-warning fw-bold">@ParsedReport.ControllerLineRate.ToString("P1")</div>
-                    <div class="small text-muted mt-1">@ParsedReport.ControllerLinesCovered.ToString("N0") / @ParsedReport.ControllerLinesTotal.ToString("N0") lines</div>
+                    <div class="h4 mb-0 text-warning fw-bold">@CoverageService.CurrentReport.ControllerLineRate.ToString("P1")</div>
+                    <div class="small text-muted mt-1">@CoverageService.CurrentReport.ControllerLinesCovered.ToString("N0") / @CoverageService.CurrentReport.ControllerLinesTotal.ToString("N0") lines</div>
                 </div>
                 <div class="col-md-3">
                     <div class="text-muted small text-uppercase fw-bold mb-1">Branch Coverage</div>
-                    <div class="h4 mb-0 text-secondary fw-bold">@ParsedReport.BranchRate.ToString("P1")</div>
-                    <div class="small text-muted mt-1">Core Logic: @ParsedReport.CoreBranchRate.ToString("P1")</div>
+                    <div class="h4 mb-0 text-secondary fw-bold">@CoverageService.CurrentReport.BranchRate.ToString("P1")</div>
+                    <div class="small text-muted mt-1">Core Logic: @CoverageService.CurrentReport.CoreBranchRate.ToString("P1")</div>
                 </div>
             </div>
         </div>
@@ -94,10 +94,10 @@
                 <div class="card-header bg-primary text-white py-1 px-3 small fw-bold">GOAL: 60% OVERALL COVERAGE</div>
                 <div class="card-body py-2 px-3">
                     @{
-                        long targetCovered = (long)Math.Ceiling(ParsedReport.LinesTotal * 0.60);
-                        long gap = targetCovered - ParsedReport.LinesCovered;
-                        long selectedImpact = ParsedReport.ClassDetails.Where(d => d.IsTarget).Sum(d => d.LinesTotal - d.LinesCovered);
-                        double estimatedRate = ParsedReport.LinesTotal > 0 ? (double)(ParsedReport.LinesCovered + selectedImpact) / ParsedReport.LinesTotal : 0;
+                        long targetCovered = (long)Math.Ceiling(CoverageService.CurrentReport.LinesTotal * 0.60);
+                        long gap = targetCovered - CoverageService.CurrentReport.LinesCovered;
+                        long selectedImpact = CoverageService.CurrentReport.ClassDetails.Where(d => d.IsTarget).Sum(d => d.LinesTotal - d.LinesCovered);
+                        double estimatedRate = CoverageService.CurrentReport.LinesTotal > 0 ? (double)(CoverageService.CurrentReport.LinesCovered + selectedImpact) / CoverageService.CurrentReport.LinesTotal : 0;
                     }
                     <div class="d-flex justify-content-between mb-1">
                         <span class="small text-muted">Required Additional:</span>
@@ -110,8 +110,8 @@
                         <span class="small fw-bold text-primary">+@selectedImpact.ToString("N0") lines</span>
                     </div>
                     <div class="progress mb-2" style="height: 10px;">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: @(ParsedReport.LineRate * 100)%"></div>
-                        <div class="progress-bar bg-primary progress-bar-striped" role="progressbar" style="width: @((estimatedRate - ParsedReport.LineRate) * 100)%"></div>
+                        <div class="progress-bar bg-success" role="progressbar" style="width: @(CoverageService.CurrentReport.LineRate * 100)%"></div>
+                        <div class="progress-bar bg-primary progress-bar-striped" role="progressbar" style="width: @((estimatedRate - CoverageService.CurrentReport.LineRate) * 100)%"></div>
                     </div>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="small fw-bold">Est: <span class="@GetRateClass(estimatedRate)">@estimatedRate.ToString("P1")</span></span>
@@ -135,7 +135,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var record in ParsedReport.Records.Where(r => r.PackageName.EndsWith(" (Logic)")))
+                    @foreach (var record in CoverageService.CurrentReport.Records.Where(r => r.PackageName.EndsWith(" (Logic)")))
                     {
                         <tr>
                             <td>@record.PackageName.Replace(" (Logic)", "")</td>
@@ -150,7 +150,7 @@
             </table>
         </div>
 
-        @if (ParsedReport.ClassDetails.Any())
+        @if (CoverageService.CurrentReport.ClassDetails.Any())
         {
             <div class="mt-4 d-flex align-items-center justify-content-between">
                 <h4 class="h6 text-warning fw-bold mb-0">Target Action Plan & Logic Details</h4>
@@ -158,7 +158,7 @@
                     <span class="small me-2 text-muted fw-bold">THRESHOLD:</span>
                     <input type="number" class="form-control form-control-sm border-0 bg-transparent text-center" 
                            style="width: 60px; font-weight: bold;" 
-                           @bind="CoverageThreshold" min="0" max="100" />
+                           @bind="CoverageService.CoverageThreshold" min="0" max="100" />
                     <span class="small fw-bold text-muted">%</span>
                 </div>
             </div>
@@ -177,7 +177,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var detail in ParsedReport.ClassDetails.Where(d => d.IsTarget || d.LineRate <= (double)CoverageThreshold / 100.0).OrderByDescending(d => d.IsTarget).ThenByDescending(d => d.LinesTotal - d.LinesCovered))
+                        @foreach (var detail in CoverageService.CurrentReport.ClassDetails.Where(d => d.IsTarget || d.LineRate <= (double)CoverageService.CoverageThreshold / 100.0).OrderByDescending(d => d.IsTarget).ThenByDescending(d => d.LinesTotal - d.LinesCovered))
                         {
                             <tr class="@(detail.IsTarget ? "table-primary" : "")">
                                 <td class="text-center">
@@ -216,7 +216,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var record in ParsedReport.Records.Where(r => r.PackageName.EndsWith(" (Controllers)")))
+                    @foreach (var record in CoverageService.CurrentReport.Records.Where(r => r.PackageName.EndsWith(" (Controllers)")))
                     {
                         <tr>
                             <td>@record.PackageName.Replace(" (Controllers)", "")</td>
@@ -231,7 +231,7 @@
             </table>
         </div>
 
-        @if (ParsedReport.ControllerDetails.Any())
+        @if (CoverageService.CurrentReport.ControllerDetails.Any())
         {
             <div class="alert alert-warning py-2 mb-2 small">
                 <strong>Migration Priority:</strong> Controllers with large line counts (Complexity) are high-priority targets for 3-layer architecture migration.
@@ -248,7 +248,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var detail in ParsedReport.ControllerDetails.OrderByDescending(d => d.LinesTotal))
+                        @foreach (var detail in CoverageService.CurrentReport.ControllerDetails.OrderByDescending(d => d.LinesTotal))
                         {
                             <tr>
                                 <td><span class="text-muted small">@detail.PackageName.</span><br /><strong>@detail.ClassName</strong></td>
@@ -266,11 +266,9 @@
 }
 
 @code {
-    private ReportHistory? ParsedReport;
     private string? ErrorMessage;
     private bool IsSaving;
     private bool IsLoading;
-    private int CoverageThreshold = 75;
 
     private double ProgressValue;
     private double HistoricalSpeedBytesPerMs;
@@ -290,7 +288,7 @@
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
         ErrorMessage = null;
-        ParsedReport = null;
+        CoverageService.CurrentReport = null;
         IsLoading = true;
         ProgressValue = 0;
         EstimatedTimeRemaining = 0;
@@ -322,7 +320,7 @@
                 StateHasChanged();
             });
 
-            ParsedReport = await XmlParser.ParseAsync(content, progress);
+            CoverageService.CurrentReport = await XmlParser.ParseAsync(content, progress);
         }
         catch (Exception ex)
         {
@@ -336,18 +334,18 @@
 
     private async Task SaveReport()
     {
-        if (ParsedReport == null) return;
+        if (CoverageService.CurrentReport == null) return;
         IsSaving = true;
         try
         {
             bool confirm = await JS.InvokeAsync<bool>("confirm", 
-                $"Saving report for date {ParsedReport.UploadDate:yyyy-MM-dd}. This will overwrite any existing report for this date. Continue?");
+                $"Saving report for date {CoverageService.CurrentReport.UploadDate:yyyy-MM-dd}. This will overwrite any existing report for this date. Continue?");
                 
             if (confirm)
             {
-                await CoverageService.SaveReportAsync(ParsedReport);
+                await CoverageService.SaveReportAsync(CoverageService.CurrentReport);
                 await JS.InvokeVoidAsync("alert", "Saved successfully!");
-                ParsedReport = null; // Reset
+                CoverageService.CurrentReport = null; // Reset
             }
         }
         catch (Exception ex)
@@ -362,19 +360,19 @@
 
     private void AutoSelectTargets()
     {
-        if (ParsedReport == null) return;
+        if (CoverageService.CurrentReport == null) return;
 
         // Reset all targets first
-        foreach (var d in ParsedReport.ClassDetails) d.IsTarget = false;
+        foreach (var d in CoverageService.CurrentReport.ClassDetails) d.IsTarget = false;
 
-        long targetCovered = (long)Math.Ceiling(ParsedReport.LinesTotal * 0.60);
-        long currentCovered = ParsedReport.LinesCovered;
+        long targetCovered = (long)Math.Ceiling(CoverageService.CurrentReport.LinesTotal * 0.60);
+        long currentCovered = CoverageService.CurrentReport.LinesCovered;
         long needed = targetCovered - currentCovered;
 
         if (needed <= 0) return;
 
         // Sort classes by impact (uncovered lines)
-        var candidates = ParsedReport.ClassDetails
+        var candidates = CoverageService.CurrentReport.ClassDetails
             .OrderByDescending(d => d.LinesTotal - d.LinesCovered)
             .ToList();
 

@@ -16,6 +16,9 @@ namespace CoverageReport.Services
             _dbManager = dbManager;
         }
 
+        public ReportHistory? CurrentReport { get; set; }
+        public int CoverageThreshold { get; set; } = 75;
+
         public async Task<List<ReportHistory>> GetHistoryAsync()
         {
             // IndexedDBManager doesn't support complex ordering/querying natively easily without getting all.
