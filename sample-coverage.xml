@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<coverage line-rate="0.85" branch-rate="0.75" version="1.9" timestamp="1625123456" lines-covered="85" lines-valid="100" branches-covered="75" branches-valid="100">
+  <sources>
+    <source>C:/dev/</source>
+  </sources>
+  <packages>
+    <package name="MyApp.Core" line-rate="0.9" branch-rate="0.8" complexity="1.5">
+      <classes>
+        <class name="MyApp.Core.Calculator" filename="MyApp.Core/Calculator.cs" line-rate="1.0" branch-rate="1.0" complexity="1.0">
+        </class>
+        <class name="MyApp.Core.Logger" filename="MyApp.Core/Logger.cs" line-rate="0.8" branch-rate="0.6" complexity="2.0">
+        </class>
+      </classes>
+    </package>
+    <package name="MyApp.Web" line-rate="0.8" branch-rate="0.7" complexity="2.5">
+      <classes>
+        <class name="MyApp.Web.HomeController" filename="MyApp.Web/Controllers/HomeController.cs" line-rate="0.8" branch-rate="0.7" complexity="2.5">
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>
