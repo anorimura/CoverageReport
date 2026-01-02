@@ -1,0 +1,36 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-to-github-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # .NETのセットアップ
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x' # 使っているバージョンに合わせてね
+
+      # ビルドして公開用フォルダ(output)に出力
+      - name: Publish .NET Core Project
+        run: dotnet publish -c Release -o output
+
+      # baseタグの書き換え（自動化）
+      - name: Change base tag in index.html from / to /CoverageReport/
+        run: sed -i 's/<base href="\/" \/>/<base href="\/CoverageReport\/" \/>/g' output/wwwroot/index.html
+
+      # 404.htmlの自動生成
+      - name: copy index.html to 404.html
+        run: cp output/wwwroot/index.html output/wwwroot/404.html
+
+      # GitHub Pagesへデプロイ
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./output/wwwroot
