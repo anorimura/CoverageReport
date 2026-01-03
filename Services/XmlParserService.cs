@@ -19,7 +19,8 @@ namespace CoverageReport.Services
             var history = new ReportHistory
             {
                 UploadDate = DateTime.Now,
-                FileSizeBytes = System.Text.Encoding.UTF8.GetByteCount(xmlContent)
+                FileSizeBytes = System.Text.Encoding.UTF8.GetByteCount(xmlContent),
+                ExclusionPattern = ".Controller" // Default
             };
 
             var packages = coverage.Element("packages")?.Elements("package").ToList() ?? new List<XElement>();
@@ -31,16 +32,6 @@ namespace CoverageReport.Services
             long totalBranches = 0;
             long coveredBranches = 0;
 
-            long coreTotalLines = 0;
-            long coreCoveredLines = 0;
-            long coreTotalBranches = 0;
-            long coreCoveredBranches = 0;
-
-            long controllerTotalLines = 0;
-            long controllerCoveredLines = 0;
-            long controllerTotalBranches = 0;
-            long controllerCoveredBranches = 0;
-
             foreach (var package in packages)
             {
                 var packageName = package.Attribute("name")?.Value ?? "Unknown";
@@ -50,12 +41,6 @@ namespace CoverageReport.Services
 
                 var classes = package.Element("classes")?.Elements("class") ?? Enumerable.Empty<XElement>();
                 
-                // Track sub-totals per package to handle mixed packages
-                long pkgLogicLines = 0;
-                long pkgLogicCovered = 0;
-                long pkgControllerLines = 0;
-                long pkgControllerCovered = 0;
-
                 foreach (var cls in classes)
                 {
                     var clsName = cls.Attribute("name")?.Value ?? "Unknown";
@@ -70,11 +55,6 @@ namespace CoverageReport.Services
                     long clsCoveredBranches = long.TryParse(cls.Attribute("branches-covered")?.Value, out var cbc) ? cbc : 0;
                     double clsLineRate = double.TryParse(cls.Attribute("line-rate")?.Value, out var cllr) ? cllr : 
                         (clsLines > 0 ? (double)clsCoveredLines / clsLines : 0);
-
-                    // Check if this class is a controller
-                    bool isController = packageName.Contains("WebAPI.Controller", StringComparison.OrdinalIgnoreCase) || 
-                                       clsName.Contains(".Controller", StringComparison.OrdinalIgnoreCase) ||
-                                       clsName.EndsWith("Controller", StringComparison.OrdinalIgnoreCase);
 
                     totalLines += clsLines;
                     coveredLines += clsCoveredLines;
@@ -92,53 +72,9 @@ namespace CoverageReport.Services
                         LinesCovered = clsCoveredLines
                     };
 
-                    if (isController)
-                    {
-                        pkgControllerLines += clsLines;
-                        pkgControllerCovered += clsCoveredLines;
-                        controllerTotalLines += clsLines;
-                        controllerCoveredLines += clsCoveredLines;
-                        controllerTotalBranches += clsBranches;
-                        controllerCoveredBranches += clsCoveredBranches;
-                        history.ControllerDetails.Add(detail);
-                    }
-                    else
-                    {
-                        pkgLogicLines += clsLines;
-                        pkgLogicCovered += clsCoveredLines;
-                        coreTotalLines += clsLines;
-                        coreCoveredLines += clsCoveredLines;
-                        coreTotalBranches += clsBranches;
-                        coreCoveredBranches += clsCoveredBranches;
-                        
-                        // Include all WebAPI logic for dynamic filtering in UI
-                        if (packageName.Contains("WebAPI", StringComparison.OrdinalIgnoreCase))
-                        {
-                            history.ClassDetails.Add(detail);
-                        }
-                    }
-                }
-
-                // Add to records (summaries table side)
-                if (pkgLogicLines > 0)
-                {
-                    history.Records.Add(new PackageSummary {
-                        PackageName = packageName + " (Logic)",
-                        ClassCount = classes.Count(c => !((c.Attribute("name")?.Value ?? "").Contains(".Controller") || (c.Attribute("name")?.Value ?? "").EndsWith("Controller"))),
-                        LinesTotal = pkgLogicLines,
-                        LinesCovered = pkgLogicCovered,
-                        LineRate = (double)pkgLogicCovered / pkgLogicLines
-                    });
-                }
-                if (pkgControllerLines > 0)
-                {
-                    history.Records.Add(new PackageSummary {
-                        PackageName = packageName + " (Controllers)",
-                        ClassCount = classes.Count(c => (c.Attribute("name")?.Value ?? "").Contains(".Controller") || (c.Attribute("name")?.Value ?? "").EndsWith("Controller")),
-                        LinesTotal = pkgControllerLines,
-                        LinesCovered = pkgControllerCovered,
-                        LineRate = (double)pkgControllerCovered / pkgControllerLines
-                    });
+                    // In the initial parse, we add everything to ClassDetails.
+                    // The UI will categorize them on the fly based on the pattern.
+                    history.ClassDetails.Add(detail);
                 }
 
                 processedPackages++;
@@ -155,20 +91,36 @@ namespace CoverageReport.Services
             history.LineRate = totalLines > 0 ? (double)coveredLines / totalLines : 0;
             history.BranchRate = totalBranches > 0 ? (double)coveredBranches / totalBranches : 0;
 
-            history.CoreLinesTotal = coreTotalLines;
-            history.CoreLinesCovered = coreCoveredLines;
-            history.CoreLineRate = coreTotalLines > 0 ? (double)coreCoveredLines / coreTotalLines : 0;
-            history.CoreBranchRate = coreTotalBranches > 0 ? (double)coreCoveredBranches / coreTotalBranches : 0;
-
-            history.ControllerLinesTotal = controllerTotalLines;
-            history.ControllerLinesCovered = controllerCoveredLines;
-            history.ControllerLineRate = controllerTotalLines > 0 ? (double)controllerCoveredLines / controllerTotalLines : 0;
-            history.ControllerBranchRate = controllerTotalBranches > 0 ? (double)controllerCoveredBranches / controllerTotalBranches : 0;
+            // Note: Core/Controller rates will be calculated by UI dynamically.
+            // But we initialize them here with the default pattern logic to show initial data.
+            RecalculateMetrics(history);
 
             sw.Stop();
             history.ParseDurationMs = sw.ElapsedMilliseconds;
 
             return history;
+        }
+
+        public void RecalculateMetrics(ReportHistory history)
+        {
+            var pattern = history.ExclusionPattern ?? ".Controller";
+            
+            var controllers = history.ClassDetails.Where(d => 
+                d.PackageName.Contains(pattern, StringComparison.OrdinalIgnoreCase) || 
+                d.ClassName.Contains(pattern, StringComparison.OrdinalIgnoreCase)).ToList();
+            
+            var core = history.ClassDetails.Except(controllers).ToList();
+
+            history.ControllerLinesTotal = controllers.Sum(c => c.LinesTotal);
+            history.ControllerLinesCovered = controllers.Sum(c => c.LinesCovered);
+            history.ControllerLineRate = history.ControllerLinesTotal > 0 ? (double)history.ControllerLinesCovered / history.ControllerLinesTotal : 0;
+
+            history.CoreLinesTotal = core.Sum(c => c.LinesTotal);
+            history.CoreLinesCovered = core.Sum(c => c.LinesCovered);
+            history.CoreLineRate = history.CoreLinesTotal > 0 ? (double)history.CoreLinesCovered / history.CoreLinesTotal : 0;
+            
+            // For simplicity, we can also update the ControllerDetails list if the UI still expects it
+            history.ControllerDetails = controllers;
         }
     }
 }

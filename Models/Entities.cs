@@ -23,6 +23,7 @@ namespace CoverageReport.Models
         public double ControllerLineRate { get; set; }
         public double ControllerBranchRate { get; set; }
         public double TargetCoreLineRate { get; set; } = 0.6; // Default 60%
+        public string ExclusionPattern { get; set; } = ".Controller"; // Default pattern
 
         // Performance metrics for progress estimation
         public long ParseDurationMs { get; set; }
