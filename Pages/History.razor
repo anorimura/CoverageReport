@@ -1,5 +1,9 @@
 @page "/history"
-@inject CoverageService CoverageService
+@using CoverageReport.Application.CQRS
+@using CoverageReport.Application.CQRS.Commands
+@using CoverageReport.Application.CQRS.Queries
+@using CoverageReport.Domain.Models
+@inject CoverageReport.Application.CQRS.Dispatcher _dispatcher
 @inject IJSRuntime JS
 
 <PageTitle>Coverage History</PageTitle>
@@ -17,112 +21,145 @@ else if (!HistoryData.Any())
 else
 {
     <div class="mb-4">
-        <ApexChart TItem="ReportHistory"
+        <ApexChart TItem="CoverageReportAggregate"
                    Title="Coverage Trend"
                    Options=options>
 
-            <ApexPointSeries TItem="ReportHistory"
+            <ApexPointSeries TItem="CoverageReportAggregate"
                              Items="HistoryData"
                              Name="Line Rate"
                              SeriesType="SeriesType.Line"
                              XValue="@(e => e.UploadDate.ToShortDateString())"
-                             YValue="@(e => (decimal)(e.LineRate * 100))" />
+                             YValue="@(e => (decimal)(e.GetTotalMetrics().Rate * 100))" />
 
-            <ApexPointSeries TItem="ReportHistory"
-                             Items="HistoryData"
-                             Name="Branch Rate"
-                             SeriesType="SeriesType.Line"
-                             XValue="@(e => e.UploadDate.ToShortDateString())"
-                             YValue="@(e => (decimal)(e.BranchRate * 100))" />
-
-            <ApexPointSeries TItem="ReportHistory"
+            <ApexPointSeries TItem="CoverageReportAggregate"
                              Items="HistoryData"
                              Name="Core Line Rate"
                              SeriesType="SeriesType.Line"
                              XValue="@(e => e.UploadDate.ToShortDateString())"
-                             YValue="@(e => (decimal)(e.CoreLineRate * 100))" />
+                             YValue="@(e => (decimal)(e.CoreMetrics.Rate * 100))" />
 
-            <ApexPointSeries TItem="ReportHistory"
+            <ApexPointSeries TItem="CoverageReportAggregate"
                              Items="HistoryData"
-                             Name="Core Branch Rate"
+                             Name="Controller Line Rate"
                              SeriesType="SeriesType.Line"
                              XValue="@(e => e.UploadDate.ToShortDateString())"
-                             YValue="@(e => (decimal)(e.CoreBranchRate * 100))" />
+                             YValue="@(e => (decimal)(e.ControllerMetrics.Rate * 100))" />
         </ApexChart>
     </div>
 
     <table class="table">
-        <thead>
+        <thead class="bg-light user-select-none">
             <tr>
-                <th>Date</th>
-                <th>Line Rate</th>
-                <th>Branch Rate</th>
-                <th>Core Line Rate</th>
-                <th>Core Branch Rate</th>
-                <th>Total Lines</th>
+                <th @onclick='() => SortHistory("Date")' style="cursor: pointer;">Date <i class="bi @GetSortIcon("History", "Date")"></i></th>
+                <th @onclick='() => SortHistory("Overall")' style="cursor: pointer;">Overall Line Rate <i class="bi @GetSortIcon("History", "Overall")"></i></th>
+                <th @onclick='() => SortHistory("Core")' style="cursor: pointer;">Core Line Rate <i class="bi @GetSortIcon("History", "Core")"></i></th>
+                <th @onclick='() => SortHistory("Controller")' style="cursor: pointer;">Controller Line Rate <i class="bi @GetSortIcon("History", "Controller")"></i></th>
+                <th @onclick='() => SortHistory("Total")' style="cursor: pointer;">Total Lines <i class="bi @GetSortIcon("History", "Total")"></i></th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var item in HistoryData.OrderByDescending(h => h.UploadDate))
+            @{
+                var sortedHistory = HistorySortColumn switch {
+                    "Date" => HistorySortAscending ? HistoryData.OrderBy(h => h.UploadDate) : HistoryData.OrderByDescending(h => h.UploadDate),
+                    "Overall" => HistorySortAscending ? HistoryData.OrderBy(h => h.GetTotalMetrics().Rate) : HistoryData.OrderByDescending(h => h.GetTotalMetrics().Rate),
+                    "Core" => HistorySortAscending ? HistoryData.OrderBy(h => h.CoreMetrics.Rate) : HistoryData.OrderByDescending(h => h.CoreMetrics.Rate),
+                    "Controller" => HistorySortAscending ? HistoryData.OrderBy(h => h.ControllerMetrics.Rate) : HistoryData.OrderByDescending(h => h.ControllerMetrics.Rate),
+                    "Total" => HistorySortAscending ? HistoryData.OrderBy(h => h.GetTotalMetrics().Total) : HistoryData.OrderByDescending(h => h.GetTotalMetrics().Total),
+                    _ => HistoryData.OrderByDescending(h => h.UploadDate)
+                };
+            }
+            @foreach (var item in sortedHistory)
             {
+                var totalMetrics = item.GetTotalMetrics();
+                var coreMetrics = item.CoreMetrics;
+                var controllerMetrics = item.ControllerMetrics;
+
                 <tr>
                     <td>@item.UploadDate.ToShortDateString()</td>
-                    <td>@item.LineRate.ToString("P1")</td>
-                    <td>@item.BranchRate.ToString("P1")</td>
-                    <td class="fw-bold">@item.CoreLineRate.ToString("P1")</td>
-                    <td class="fw-bold">@item.CoreBranchRate.ToString("P1")</td>
-                    <td>@item.LinesTotal.ToString("N0")</td>
+                    <td>@totalMetrics.Rate.ToString("P1")</td>
+                    <td class="fw-bold">@coreMetrics.Rate.ToString("P1")</td>
+                    <td class="fw-bold">@controllerMetrics.Rate.ToString("P1")</td>
+                    <td>@totalMetrics.Total.ToString("N0")</td>
                     <td>
-                        <button class="btn btn-primary btn-sm me-1" @onclick="() => ViewReportDetails(item.Id)">View Plan</button>
+                        <button class="btn btn-primary btn-sm me-1" @onclick="() => ViewReportDetails(item.Id)">View Details</button>
                         <button class="btn btn-danger btn-sm" @onclick="() => DeleteReport(item.Id)">Delete</button>
                     </td>
                 </tr>
                 @if (SelectedReport?.Id == item.Id)
                 {
                     <tr class="table-info">
-                        <td colspan="7">
+                        <td colspan="6">
                             <div class="p-3 bg-white border rounded shadow-sm">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="mb-0 fw-bold">Target Action Plan (60% Goal)</h5>
+                                    <h5 class="mb-0 fw-bold">Package Breakdown</h5>
                                     <button class="btn-close" @onclick="() => SelectedReport = null"></button>
                                 </div>
                                 
-                                @if (!SelectedReport.ClassDetails.Any(d => d.IsTarget))
-                                {
-                                    <div class="alert alert-secondary py-2 small">No classes were targeted in this plan.</div>
+                                
+                                @{
+                                    var targets = SelectedReport.AllClasses.Where(c => c.IsTarget).ToList();
                                 }
-                                else
+                                @if (targets.Any())
                                 {
+                                    <div class="mb-4 p-3 bg-warning bg-opacity-10 border border-warning rounded shadow-sm">
+                                        @{
+                                            var targetUncovered = targets.Sum(c => c.LineCoverage.Total - c.LineCoverage.Covered);
+                                            var totalLines = SelectedReport.GetTotalMetrics().Total;
+                                            var potentialBoost = totalLines > 0 ? (double)targetUncovered / totalLines : 0;
+                                            var currentRate = SelectedReport.GetTotalMetrics().Rate;
+                                        }
+                                        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-warning border-opacity-25 pb-2">
+                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-bullseye me-1"></i>Target Action Plan</h6>
+                                            <div class="text-end">
+                                                <span class="badge bg-danger">@targetUncovered.ToString("N0") lines to cover</span>
+                                                <span class="badge bg-success ms-1">+@potentialBoost.ToString("P1") boost</span>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3 small">
+                                            <span class="text-muted">Expected result:</span>
+                                            <span class="fw-bold mx-2">@currentRate.ToString("P1")</span>
+                                            <i class="bi bi-arrow-right text-muted"></i>
+                                            <span class="fw-bold text-success mx-2">@((currentRate + potentialBoost).ToString("P1"))</span>
+                                        </div>
+                                        <ul class="list-unstyled mb-0 small row">
+                                            @foreach (var t in targets)
+                                            {
+                                                <li class="col-md-6 mb-1"><i class="bi bi-check2-circle text-warning me-1"></i>@t.Name (@t.LineCoverage.Rate.ToString("P1"))</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+
+                                <div class="mt-4">
+                                    <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-file-earmark-text me-1"></i>Class Details</h6>
                                     <div class="table-responsive">
-                                        <table class="table table-sm table-hover mb-0">
+                                        <table class="table table-sm table-hover table-striped mb-0" style="font-size: 0.8rem;">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th>Package / Class</th>
-                                                    <th>Impact (Lines)</th>
-                                                    <th>Coverage at Upload</th>
+                                                    <th>Class</th>
+                                                    <th class="text-end">Coverage</th>
+                                                    <th class="text-end">Total</th>
+                                                    <th class="text-center">Target</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach (var detail in SelectedReport.ClassDetails.Where(d => d.IsTarget).OrderByDescending(d => d.LinesTotal - d.LinesCovered))
+                                                @foreach (var cls in SelectedReport.AllClasses.OrderBy(c => c.FullName))
                                                 {
                                                     <tr>
-                                                        <td><span class="text-muted small">@detail.PackageName.</span><br /><strong>@detail.ClassName</strong></td>
-                                                        <td class="text-danger fw-bold">@((detail.LinesTotal - detail.LinesCovered).ToString("N0"))</td>
-                                                        <td class="@GetRateClass(detail.LineRate)">@detail.LineRate.ToString("P1")</td>
+                                                        <td class="small">@cls.Name<br/><span class="text-muted" style="font-size: 0.7rem;">@cls.FullName</span></td>
+                                                        <td class="text-end @GetRateClass(cls.LineCoverage.Rate)">@cls.LineCoverage.Rate.ToString("P1")</td>
+                                                        <td class="text-end">@cls.LineCoverage.Total</td>
+                                                        <td class="text-center">
+                                                            @if (cls.IsTarget) { <i class="bi bi-bullseye text-warning"></i> }
+                                                        </td>
                                                     </tr>
                                                 }
                                             </tbody>
                                         </table>
                                     </div>
-                                    <div class="mt-2 text-end">
-                                        @{
-                                            long totalImpact = SelectedReport.ClassDetails.Where(d => d.IsTarget).Sum(d => d.LinesTotal - d.LinesCovered);
-                                            double est = SelectedReport.LinesTotal > 0 ? (double)(SelectedReport.LinesCovered + totalImpact) / SelectedReport.LinesTotal : 0;
-                                        }
-                                        <span class="small fw-bold">Total Impact: <span class="text-primary">+@totalImpact.ToString("N0")</span> lines (Estimated: <span class="@GetRateClass(est)">@est.ToString("P1")</span>)</span>
-                                    </div>
-                                }
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -133,14 +170,13 @@ else
 }
 
 @code {
-    private List<ReportHistory>? HistoryData;
-    private ReportHistory? SelectedReport;
-    private ApexChartOptions<ReportHistory> options = new ApexChartOptions<ReportHistory>();
+    private List<CoverageReportAggregate>? HistoryData;
+    private CoverageReportAggregate? SelectedReport;
+    private ApexChartOptions<CoverageReportAggregate> options = new ApexChartOptions<CoverageReportAggregate>();
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
-        // Setup chart options
         options.Yaxis = new List<YAxis>
         {
             new YAxis { Min = 0, Max = 100 }
@@ -149,8 +185,7 @@ else
 
     private async Task LoadData()
     {
-        var data = await CoverageService.GetHistoryAsync();
-        // For chart, we want chronological order
+        var data = await _dispatcher.DispatchAsync<GetHistoryQuery, List<CoverageReportAggregate>>(new GetHistoryQuery());
         HistoryData = data.OrderBy(h => h.UploadDate).ToList();
     }
 
@@ -158,7 +193,7 @@ else
     {
         if (await JS.InvokeAsync<bool>("confirm", "Are you sure?"))
         {
-            await CoverageService.DeleteReportAsync(id);
+            await _dispatcher.DispatchAsync(new DeleteReportCommand(id));
             await LoadData();
         }
     }
@@ -171,9 +206,37 @@ else
         }
         else
         {
-            SelectedReport = await CoverageService.GetReportAsync(id);
+            SelectedReport = await _dispatcher.DispatchAsync<GetReportDetailsQuery, CoverageReportAggregate>(new GetReportDetailsQuery(id));
         }
     }
 
     private string GetRateClass(double rate) => rate < 0.5 ? "text-danger" : (rate < 0.8 ? "text-warning" : "text-success");
+
+    // Sorting state
+    private string HistorySortColumn = "Date";
+    private bool HistorySortAscending = false;
+
+    private string DetailSortColumn = "Package";
+    private bool DetailSortAscending = true;
+
+    private void SortHistory(string column)
+    {
+        if (HistorySortColumn == column) HistorySortAscending = !HistorySortAscending;
+        else { HistorySortColumn = column; HistorySortAscending = true; }
+    }
+
+    private void SortDetail(string column)
+    {
+        if (DetailSortColumn == column) DetailSortAscending = !DetailSortAscending;
+        else { DetailSortColumn = column; DetailSortAscending = true; }
+    }
+
+    private string GetSortIcon(string table, string column)
+    {
+        string activeColumn = table == "History" ? HistorySortColumn : DetailSortColumn;
+        bool ascending = table == "History" ? HistorySortAscending : DetailSortAscending;
+
+        if (activeColumn != column) return "bi-arrow-down-up text-muted opacity-50";
+        return ascending ? "bi-sort-up text-primary" : "bi-sort-down text-primary";
+    }
 }

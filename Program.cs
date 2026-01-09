@@ -1,9 +1,15 @@
 using CoverageReport;
 
-using CoverageReport.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using TG.Blazor.IndexedDB;
+using CoverageReport.Application.CQRS;
+using CoverageReport.Application.CQRS.Commands;
+using CoverageReport.Application.CQRS.Queries;
+using CoverageReport.Domain.Models;
+using CoverageReport.Domain.Repositories;
+using CoverageReport.Infrastructure.Repositories;
+using CoverageReport.Application.Services;
 
 
 
@@ -57,8 +63,19 @@ builder.Services.AddIndexedDB(dbStore =>
 });
 
 // Add Services
-builder.Services.AddScoped<XmlParserService>();
-builder.Services.AddScoped<CoverageService>();
+
+// DDD Services
+builder.Services.AddScoped<CoverageReport.Infrastructure.Parsers.CoberturaXmlParser>();
+builder.Services.AddScoped<CoverageReport.Domain.Repositories.ICoverageRepository, CoverageReport.Infrastructure.Repositories.IndexedDBCoverageRepository>();
+builder.Services.AddScoped<CoverageReport.Application.Services.CoverageApplicationService>();
+
+// CQRS Services
+builder.Services.AddScoped<CoverageReport.Application.CQRS.Dispatcher>();
+builder.Services.AddScoped<CoverageReport.Application.CQRS.ICommandHandler<CoverageReport.Application.CQRS.Commands.UploadCoverageCommand>, CoverageReport.Application.CQRS.Commands.UploadCoverageCommandHandler>();
+builder.Services.AddScoped<CoverageReport.Application.CQRS.ICommandHandler<CoverageReport.Application.CQRS.Commands.SaveReportCommand>, CoverageReport.Application.CQRS.Commands.SaveReportCommandHandler>();
+builder.Services.AddScoped<CoverageReport.Application.CQRS.ICommandHandler<CoverageReport.Application.CQRS.Commands.DeleteReportCommand>, CoverageReport.Application.CQRS.Commands.DeleteReportCommandHandler>();
+builder.Services.AddScoped<CoverageReport.Application.CQRS.IQueryHandler<CoverageReport.Application.CQRS.Queries.GetHistoryQuery, List<CoverageReport.Domain.Models.CoverageReportAggregate>>, CoverageReport.Application.CQRS.Queries.GetHistoryQueryHandler>();
+builder.Services.AddScoped<CoverageReport.Application.CQRS.IQueryHandler<CoverageReport.Application.CQRS.Queries.GetReportDetailsQuery, CoverageReport.Domain.Models.CoverageReportAggregate?>, CoverageReport.Application.CQRS.Queries.GetReportDetailsQueryHandler>();
 
 var host = builder.Build();
 
